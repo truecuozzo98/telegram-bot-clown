@@ -1,7 +1,7 @@
 
 import { webhookCallback } from "https://deno.land/x/grammy@v1.36.3/mod.ts";
 // You might modify this to the correct way to import your `Bot` object.
-import { bot } from "./bot";
+import { bot } from "./bot.ts";
 
 const webhookUrl = `https://api.telegram.org/bot${bot.token}/setWebhook?url=https://truecuozzo9-telegram-bo-67.deno.dev/${bot.token}`;
 console.log(webhookUrl);
