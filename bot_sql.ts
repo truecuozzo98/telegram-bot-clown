@@ -1,4 +1,4 @@
-import { neon } from "https://esm.sh/@neon/serverless@1.0.0";
+import { neon } from 'jsr:@neon/serverless@^0.10.1';
 
 const databaseUrl = Deno.env.get('DATABASE_URL')!;
 const sql = neon(databaseUrl);
