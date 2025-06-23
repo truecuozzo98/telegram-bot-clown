@@ -1,26 +1,17 @@
-import { Pool } from "https://deno.land/x/postgres@v0.19.3/mod.ts";
+import { neon } from '@neon/serverless';
 
-// Get the connection string from the environment variable "DATABASE_URL"
-const databaseUrl = Deno.env.get("DATABASE_URL")!;
-
-// Create a database pool with three connections that are lazily established
-const pool = new Pool(databaseUrl, 3, true);
+const databaseUrl = Deno.env.get('DATABASE_URL')!;
+const sql = neon(databaseUrl);
 
 // Ottieni il punteggio di un utente
 export async function getClownScore(chatId: number, userId: number) {
-  const client = await pool.connect();
-  try {
-    const result = await client.queryObject<{ score: number; username: string }>(
-      "SELECT score, username FROM clowns WHERE chat_id = $1 AND user_id = $2",
-      [chatId, userId],
-    );
-    if (result.rows.length > 0) {
-      return result.rows[0];
-    }
-    return { score: 0, username: "" };
-  } finally {
-    client.release();
+  const rows = await sql`
+    SELECT score, username FROM clowns WHERE chat_id = ${chatId} AND user_id = ${userId}
+  `;
+  if (rows.length > 0) {
+    return rows[0] as { score: number; username: string };
   }
+  return { score: 0, username: "" };
 }
 
 // Aggiorna o inserisci il punteggio di un utente
@@ -32,40 +23,25 @@ export async function setClownScore(
   message: string,
   messageTimestamp: Date,
 ) {
-  const client = await pool.connect();
-  try {
-    await client.queryObject(
-      `INSERT INTO clowns (user_id, chat_id, username, score, message, message_timestamp)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       ON CONFLICT (user_id) DO UPDATE
-       SET score = $4, username = $3, message = $5, message_timestamp = $6`,
-      [userId, chatId, username, score, message, messageTimestamp],
-    );
-  } finally {
-    client.release();
-  }
+  await sql`
+    INSERT INTO clowns (user_id, chat_id, username, score, message, message_timestamp)
+    VALUES (${userId}, ${chatId}, ${username}, ${score}, ${message}, ${messageTimestamp})
+    ON CONFLICT (user_id) DO UPDATE
+    SET score = ${score}, username = ${username}, message = ${message}, message_timestamp = ${messageTimestamp}
+  `;
 }
 
 // Ottieni la leaderboard della chat
 export async function getLeaderboard(chatId: number) {
-  const client = await pool.connect();
-  try {
-    const result = await client.queryObject<{ username: string; score: number }>(
-      "SELECT username, score FROM clowns WHERE chat_id = $1 ORDER BY score DESC",
-      [chatId],
-    );
-    return result.rows;
-  } finally {
-    client.release();
-  }
+  const rows = await sql`
+    SELECT username, score FROM clowns WHERE chat_id = ${chatId} ORDER BY score DESC
+  `;
+  return rows as { username: string; score: number }[];
 }
 
 // Cancella tutti i punteggi di una chat
 export async function dropClownScores(chatId: number) {
-  const client = await pool.connect();
-  try {
-    await client.queryObject("DELETE FROM clowns WHERE chat_id = $1", [chatId]);
-  } finally {
-    client.release();
-  }
+  await sql`
+    DELETE FROM clowns WHERE chat_id = ${chatId}
+  `;
 }
