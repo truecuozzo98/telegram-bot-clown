@@ -55,6 +55,23 @@ bot.command("clown", async (ctx) => {
   await ctx.reply(`🤡 @${username} ora ha ${updated} punti clown!`);
 });
 
+// Comando /declown @username
+bot.command("declown", async (ctx) => {
+  const match = ctx.match?.trim().match(/^@(\w+)/);
+  if (!match) {
+    await ctx.reply("Usa il comando così: /declown @username");
+    return;
+  }
+  const username = match[1];
+
+  // Leggi e aggiorna il punteggio (non andare sotto zero)
+  const current = await getClownScore(username);
+  const updated = Math.max(current - 1, 0);
+  await setClownScore(username, updated);
+
+  await ctx.reply(`🤡 @${username} ora ha ${updated} punti clown!`);
+});
+
 // Comando /leaderboard
 bot.command("leaderboard", async (ctx) => {
   const leaderboard = await getLeaderboard();
