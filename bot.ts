@@ -21,6 +21,20 @@ async function setClownScore(username: string, score: number) {
   await kv.set(["clown_score", username], score);
 }
 
+// Funzione per ottenere tutta la leaderboard da Deno KV
+async function getLeaderboard(): Promise<{ username: string; score: number }[]> {
+  const kv = await Deno.openKv();
+  const entries: { username: string; score: number }[] = [];
+  for await (const entry of kv.list<number>({ prefix: ["clown_score"] })) {
+    const username = entry.key[1] as string;
+    const score = entry.value ?? 0;
+    entries.push({ username, score });
+  }
+  // Ordina per punteggio decrescente
+  entries.sort((a, b) => b.score - a.score);
+  return entries;
+}
+
 // Comando /start
 bot.command("start", (ctx) => ctx.reply("Welcome! Up and running."));
 
@@ -41,7 +55,20 @@ bot.command("clown", async (ctx) => {
   await ctx.reply(`🤡 @${username} ora ha ${updated} punti clown!`);
 });
 
+// Comando /leaderboard
+bot.command("leaderboard", async (ctx) => {
+  const leaderboard = await getLeaderboard();
+  if (leaderboard.length === 0) {
+    await ctx.reply("Nessun punteggio clown ancora registrato!");
+    return;
+  }
+  const text = leaderboard
+    .map((entry, idx) => `${idx + 1}. @${entry.username}: ${entry.score} punti`)
+    .join("\n");
+  await ctx.reply(`🏆 Classifica clown:\n${text}`);
+});
+
 // Gestisci altri messaggi
 bot.on("message", (ctx) => ctx.reply("Got another message!"));
 
-// Non avviare qui il bot con bot.start() se usi webhook!
+// Non avviare qui il bot con bot.start() se stai usando webhook
