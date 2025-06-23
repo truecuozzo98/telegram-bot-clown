@@ -44,3 +44,13 @@ export async function dropClownScores(chatId: number) {
     DELETE FROM clowns WHERE chat_id = ${chatId}
   `;
 }
+
+export async function getUserMessages(chatId: number, userId: number) {
+  const rows = await sql`
+    SELECT message, message_timestamp, message_id
+    FROM clowns
+    WHERE chat_id = ${chatId} AND user_id = ${userId}
+    ORDER BY message_timestamp DESC
+  `;
+  return rows as { message: string; message_timestamp: string; message_id: number }[];
+}

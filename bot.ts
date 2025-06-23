@@ -5,6 +5,7 @@ import {
   setClownScore,
   getLeaderboard,
   dropClownScores,
+  getUserMessages,
 } from "./bot_sql.ts";
 
 // Usa il token direttamente o da variabile d'ambiente di Deno Deploy
@@ -78,15 +79,35 @@ bot.command("resetclown", async (ctx) => {
   await ctx.reply("Tutti i punteggi clown sono stati azzerati!");
 });
 
+bot.command("messaggi", async (ctx) => {
+  const replyTo = ctx.message?.reply_to_message;
+  if (!replyTo || !replyTo.from) {
+    await ctx.reply("Usa /messaggi rispondendo a un messaggio dell'utente di cui vuoi vedere i messaggi.");
+    return;
+  }
+  const userId = replyTo.from.id;
+  const chatId = ctx.chat.id;
+  const username = replyTo.from.username ?? `${replyTo.from.first_name ?? ""}${replyTo.from.last_name ? " " + replyTo.from.last_name : ""}`;
+
+  const messages = await getUserMessages(chatId, userId);
+
+  if (messages.length === 0) {
+    await ctx.reply(`Nessun messaggio salvato per @${username}.`);
+    return;
+  }
+
+  // Mostra massimo 10 messaggi più recenti
+  const text = messages
+    .map((m, i) => `${i + 1}. ${m.message} (${new Date(m.message_timestamp).toLocaleString()})`)
+    .join("\n\n");
+
+  await ctx.reply(`Ultimi messaggi di @${username}:\n\n${text}`);
+});
+
 await bot.api.setMyCommands([
   { command: "start", description: "Avvia il bot" },
-  { command: "clown", description: "Aggiungi un punto clown a un utente. Es: /clown @username" },
-  { command: "declown", description: "Togli un punto clown a un utente. Es: /declown @username" },
+  { command: "clown", description: "Aggiungi un punto clown a un utente." },
+  { command: "declown", description: "Togli un punto clown a un utente." },
   { command: "leaderboard", description: "Mostra la classifica clown" },
+  { command: "messaggi", description: "Mostra tutti i messaggi da clown dell'utente" },
 ]);
-
-
-// Gestisci altri messaggi
-//bot.on("message", (ctx) => ctx.reply("Comando non riconosciuto."));
-
-// Non avviare qui il bot con bot.start() se stai usando webhook
