@@ -29,8 +29,7 @@ bot.command("clown", async (ctx) => {
   const chatId = ctx.chat.id;
   const username = replyTo.from.username ?? `${replyTo.from.first_name ?? ""}${replyTo.from.last_name ? " " + replyTo.from.last_name : ""}`;
   const message = replyTo.text ?? "";
-  const messageTimestamp = new Date((replyTo.date ?? Math.floor(Date.now() / 1000)) * 1000);
-
+  const messageTimestamp = new Date(((replyTo.date ?? Math.floor(Date.now() / 1000)) * 1000) + 2 * 60 * 60 * 1000);
   const current = await getClownScore(chatId, userId);
   const currentScore = Number(current.score) || 0;
   const updated = currentScore + 1;
@@ -96,12 +95,11 @@ bot.command("messaggi", async (ctx) => {
     return;
   }
 
-  // Mostra massimo 10 messaggi più recenti
   const text = messages
     .map((m, i) => `${i + 1}. ${m.message} (${new Date(m.message_timestamp).toLocaleString()})`)
     .join("\n\n");
 
-  await ctx.reply(`Ultimi messaggi di @${username}:\n\n${text}`);
+  await ctx.reply(`Messaggi di @${username}:\n\n${text}`);
 });
 
 await bot.api.setMyCommands([
