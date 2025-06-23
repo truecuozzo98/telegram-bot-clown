@@ -27,8 +27,6 @@ export async function setClownScore(
   await sql`
     INSERT INTO clowns (user_id, chat_id, username, score, message, message_timestamp, message_id)
     VALUES (${userId}, ${chatId}, ${username}, ${score}, ${message}, ${messageTimestamp}, ${messageId})
-    ON CONFLICT (user_id) DO UPDATE
-    SET score = ${score}, username = ${username}, message = ${message}, message_timestamp = ${messageTimestamp}, message_id = ${messageId}
   `;
 }
 
