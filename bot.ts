@@ -18,8 +18,6 @@ export const bot = new Bot(token);
 // Comando /start
 bot.command("start", (ctx) => ctx.reply("Welcome! Up and running."));
 
-// ...existing code...
-
 bot.command("clown", async (ctx) => {
   const replyTo = ctx.message?.reply_to_message;
   if (!replyTo || !replyTo.from) {
@@ -33,8 +31,10 @@ bot.command("clown", async (ctx) => {
   const messageTimestamp = new Date((replyTo.date ?? Math.floor(Date.now() / 1000)) * 1000);
 
   const current = await getClownScore(chatId, userId);
-  const updated = current.score + 1;
-  await setClownScore(chatId, userId, username, updated, message, messageTimestamp);
+  const currentScore = Number(current.score) || 0;
+  const updated = currentScore + 1;
+  const messageId = replyTo.message_id;
+  await setClownScore(chatId, userId, username, updated, message, messageTimestamp, messageId);
 
   await ctx.reply(`🤡 @${username} ora ha ${updated} punti clown!`);
 });
@@ -52,8 +52,10 @@ bot.command("declown", async (ctx) => {
   const messageTimestamp = new Date((replyTo.date ?? Math.floor(Date.now() / 1000)) * 1000);
 
   const current = await getClownScore(chatId, userId);
-  const updated = Math.max(current.score - 1, 0);
-  await setClownScore(chatId, userId, username, updated, message, messageTimestamp);
+  const currentScore = Number(current.score) || 0;
+  const updated = Math.max(currentScore - 1, 0);
+  const messageId = replyTo.message_id;
+  await setClownScore(chatId, userId, username, updated, message, messageTimestamp, messageId);
 
   await ctx.reply(`🤡 @${username} ora ha ${updated} punti clown!`);
 });
@@ -72,11 +74,6 @@ bot.command("leaderboard", async (ctx) => {
 });
 
 bot.command("resetclown", async (ctx) => {
-  const admins = await ctx.getChatAdministrators();
-  if (!admins.some(a => a.user.id === ctx.from?.id)) {
-    await ctx.reply("Solo gli amministratori possono resettare la classifica.");
-    return;
-  }
   await dropClownScores(ctx.chat.id);
   await ctx.reply("Tutti i punteggi clown sono stati azzerati!");
 });
