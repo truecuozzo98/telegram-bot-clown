@@ -24,9 +24,21 @@ export async function setClownScore(
   messageTimestamp: Date,
   messageId: number,
 ) {
+    
+  // Recupera il messaggio già presente
+  const rows = await sql`
+    SELECT message FROM clowns WHERE chat_id = ${chatId} AND user_id = ${userId}
+  `;
+  let newMessage = message;
+  if (rows.length > 0 && rows[0].message) {
+    newMessage = rows[0].message + "\n---\n" + message;
+  }
+
   await sql`
     INSERT INTO clowns (user_id, chat_id, username, score, message, message_timestamp, message_id)
-    VALUES (${userId}, ${chatId}, ${username}, ${score}, ${message}, ${messageTimestamp}, ${messageId})
+    VALUES (${userId}, ${chatId}, ${username}, ${score}, ${newMessage}, ${messageTimestamp}, ${messageId})
+    ON CONFLICT (chat_id, user_id) DO UPDATE
+    SET score = ${score}, username = ${username}, message = ${newMessage}, message_timestamp = ${messageTimestamp}, message_id = ${messageId}
   `;
 }
 
