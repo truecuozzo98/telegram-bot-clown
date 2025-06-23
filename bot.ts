@@ -1,5 +1,12 @@
 import { Bot } from "https://deno.land/x/grammy@v1.36.3/mod.ts";
 
+import {
+  getClownScore,
+  setClownScore,
+  getLeaderboard,
+  dropClownScores,
+} from "./bot_sql.ts";
+
 // Usa il token direttamente o da variabile d'ambiente di Deno Deploy
 const token = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
 if (!token) {
@@ -7,34 +14,6 @@ if (!token) {
 }
 
 export const bot = new Bot(token);
-
-// Funzione per ottenere il punteggio da Deno KV
-async function getClownScore(chatId: number, userId: number): Promise<{ score: number; username: string }> {
-  const kv = await Deno.openKv();
-  const res = await kv.get<{ score: number; username: string }>(["clown_score", chatId, userId]);
-  return res.value ?? { score: 0, username: "" };
-}
-
-// Funzione per aggiornare il punteggio su Deno KV
-async function setClownScore(chatId: number, userId: number, username: string, score: number) {
-  const kv = await Deno.openKv();
-  await kv.set(["clown_score", chatId, userId], { score, username });
-}
-
-// Funzione per ottenere tutta la leaderboard da Deno KV
-async function getLeaderboard(chatId: number): Promise<{ username: string; score: number }[]> {
-  const kv = await Deno.openKv();
-  const entries: { username: string; score: number }[] = [];
-  for await (const entry of kv.list<{ score: number; username: string }>({ prefix: ["clown_score", chatId] })) {
-    const value = entry.value;
-    if (value) {
-      entries.push({ username: value.username, score: value.score });
-    }
-  }
-  // Ordina per punteggio decrescente
-  entries.sort((a, b) => b.score - a.score);
-  return entries;
-}
 
 // Comando /start
 bot.command("start", (ctx) => ctx.reply("Welcome! Up and running."));
@@ -44,41 +23,44 @@ bot.command("start", (ctx) => ctx.reply("Welcome! Up and running."));
 bot.command("clown", async (ctx) => {
   const replyTo = ctx.message?.reply_to_message;
   if (!replyTo || !replyTo.from) {
-    await ctx.reply("Usa il comando /clown rispondendo a un messaggio di un membro del gruppo.");
+    await ctx.reply("Rispondi a un messaggio di un membro del gruppo.");
     return;
   }
   const userId = replyTo.from.id;
-  const userUsername = replyTo.from.username ?? `${replyTo.from.first_name ?? ""}${replyTo.from.last_name ? " " + replyTo.from.last_name : ""}`;
+  const chatId = ctx.chat.id;
+  const username = replyTo.from.username ?? `${replyTo.from.first_name ?? ""}${replyTo.from.last_name ? " " + replyTo.from.last_name : ""}`;
+  const message = replyTo.text ?? "";
+  const messageTimestamp = new Date((replyTo.date ?? Math.floor(Date.now() / 1000)) * 1000);
 
-  // Leggi e aggiorna il punteggio
-  const current = await getClownScore(ctx.chat.id, userId);
+  const current = await getClownScore(chatId, userId);
   const updated = current.score + 1;
-  await setClownScore(ctx.chat.id, userId, userUsername, updated);
+  await setClownScore(chatId, userId, username, updated, message, messageTimestamp);
 
-  await ctx.reply(`🤡 @${userUsername} ora ha ${updated} punti clown!`);
+  await ctx.reply(`🤡 @${username} ora ha ${updated} punti clown!`);
 });
 
-// Comando /declown (ora solo in risposta a un messaggio)
 bot.command("declown", async (ctx) => {
   const replyTo = ctx.message?.reply_to_message;
   if (!replyTo || !replyTo.from) {
-    await ctx.reply("Usa il comando /declown rispondendo a un messaggio di un membro del gruppo.");
+    await ctx.reply("Rispondi a un messaggio di un membro del gruppo.");
     return;
   }
   const userId = replyTo.from.id;
-  const userUsername = replyTo.from.username ?? `${replyTo.from.first_name ?? ""}${replyTo.from.last_name ? " " + replyTo.from.last_name : ""}`;
+  const chatId = ctx.chat.id;
+  const username = replyTo.from.username ?? `${replyTo.from.first_name ?? ""}${replyTo.from.last_name ? " " + replyTo.from.last_name : ""}`;
+  const message = replyTo.text ?? "";
+  const messageTimestamp = new Date((replyTo.date ?? Math.floor(Date.now() / 1000)) * 1000);
 
-  // Leggi e aggiorna il punteggio (non andare sotto zero)
-  const current = await getClownScore(ctx.chat.id, userId);
+  const current = await getClownScore(chatId, userId);
   const updated = Math.max(current.score - 1, 0);
-  await setClownScore(ctx.chat.id, userId, userUsername, updated);
+  await setClownScore(chatId, userId, username, updated, message, messageTimestamp);
 
-  await ctx.reply(`🤡 @${userUsername} ora ha ${updated} punti clown!`);
+  await ctx.reply(`🤡 @${username} ora ha ${updated} punti clown!`);
 });
 
-// Comando /leaderboard
 bot.command("leaderboard", async (ctx) => {
-  const leaderboard = await getLeaderboard(ctx.chat.id);
+  const chatId = ctx.chat.id;
+  const leaderboard = await getLeaderboard(chatId);
   if (leaderboard.length === 0) {
     await ctx.reply("Nessun punteggio clown ancora registrato!");
     return;
@@ -89,16 +71,7 @@ bot.command("leaderboard", async (ctx) => {
   await ctx.reply(`🏆 Classifica clown:\n${text}`);
 });
 
-async function dropClownScores(chatId: number) {
-  const kv = await Deno.openKv();
-  for await (const entry of kv.list({ prefix: ["clown_score", chatId] })) {
-    await kv.delete(entry.key);
-  }
-}
-
-// Esempio: comando admin per cancellare tutto
 bot.command("resetclown", async (ctx) => {
-  // Solo admin!
   const admins = await ctx.getChatAdministrators();
   if (!admins.some(a => a.user.id === ctx.from?.id)) {
     await ctx.reply("Solo gli amministratori possono resettare la classifica.");
