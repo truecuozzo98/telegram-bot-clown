@@ -1,6 +1,5 @@
 import { Bot } from "https://deno.land/x/grammy@v1.36.3/mod.ts";
 
-// Usa il token direttamente o da variabile d'ambiente di Deno Deploy
 const token = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
 if (!token) {
   throw new Error("TELEGRAM_BOT_TOKEN non definito in variabili ambiente");
@@ -9,34 +8,30 @@ if (!token) {
 export const bot = new Bot(token);
 
 // Funzione per ottenere il punteggio da Deno KV
-async function getClownScore(username: string): Promise<number> {
+async function getClownScore(chatId: number | string, userId: number): Promise<{ score: number; username: string }> {
   const kv = await Deno.openKv();
-  const res = await kv.get<number>(["clown_score", username]);
-  return res.value ?? 0;
+  const res = await kv.get<{ score: number; username: string }>(["clown_score", chatId, userId]);
+  return res.value ?? { score: 0, username: "" };
 }
 
 // Funzione per aggiornare il punteggio su Deno KV
-async function setClownScore(username: string, score: number) {
+async function setClownScore(chatId: number | string, userId: number, username: string, score: number) {
   const kv = await Deno.openKv();
-  await kv.set(["clown_score", username], score);
+  await kv.set(["clown_score", chatId, userId], { score, username });
 }
 
-// Funzione per ottenere tutta la leaderboard da Deno KV
-async function getLeaderboard(): Promise<{ username: string; score: number }[]> {
+// Funzione per ottenere tutta la leaderboard da Deno KV per un gruppo
+async function getLeaderboard(chatId: number | string): Promise<{ userId: number; username: string; score: number }[]> {
   const kv = await Deno.openKv();
-  const entries: { username: string; score: number }[] = [];
-  for await (const entry of kv.list<number>({ prefix: ["clown_score"] })) {
-    const username = entry.key[1] as string;
-    const score = entry.value ?? 0;
-    entries.push({ username, score });
+  const entries: { userId: number; username: string; score: number }[] = [];
+  for await (const entry of kv.list<{ score: number; username: string }>({ prefix: ["clown_score", chatId] })) {
+    const userId = entry.key[2] as number;
+    const { score, username } = entry.value ?? { score: 0, username: "" };
+    entries.push({ userId, username, score });
   }
-  // Ordina per punteggio decrescente
   entries.sort((a, b) => b.score - a.score);
   return entries;
 }
-
-// Comando /start
-bot.command("start", (ctx) => ctx.reply("Welcome! Up and running."));
 
 // Comando /clown @username
 bot.command("clown", async (ctx) => {
@@ -47,12 +42,21 @@ bot.command("clown", async (ctx) => {
   }
   const username = match[1];
 
-  // Leggi e aggiorna il punteggio
-  const current = await getClownScore(username);
-  const updated = current + 1;
-  await setClownScore(username, updated);
+  // Cerca l'user_id nel gruppo tramite getChatMember
+  try {
+    const member = await ctx.api.getChatMember(ctx.chat.id, `@${username}`);
+    const userId = member.user.id;
+    const userUsername = member.user.username ?? username;
 
-  await ctx.reply(`🤡 @${username} ora ha ${updated} punti clown!`);
+    // Leggi e aggiorna il punteggio
+    const current = await getClownScore(ctx.chat.id, userId);
+    const updated = current.score + 1;
+    await setClownScore(ctx.chat.id, userId, userUsername, updated);
+
+    await ctx.reply(`🤡 @${userUsername} ora ha ${updated} punti clown!`);
+  } catch {
+    await ctx.reply(`Non riesco a trovare @${username} in questo gruppo!`);
+  }
 });
 
 // Comando /declown @username
@@ -64,17 +68,24 @@ bot.command("declown", async (ctx) => {
   }
   const username = match[1];
 
-  // Leggi e aggiorna il punteggio (non andare sotto zero)
-  const current = await getClownScore(username);
-  const updated = Math.max(current - 1, 0);
-  await setClownScore(username, updated);
+  try {
+    const member = await ctx.api.getChatMember(ctx.chat.id, `@${username}`);
+    const userId = member.user.id;
+    const userUsername = member.user.username ?? username;
 
-  await ctx.reply(`🤡 @${username} ora ha ${updated} punti clown!`);
+    const current = await getClownScore(ctx.chat.id, userId);
+    const updated = Math.max(current.score - 1, 0);
+    await setClownScore(ctx.chat.id, userId, userUsername, updated);
+
+    await ctx.reply(`🤡 @${userUsername} ora ha ${updated} punti clown!`);
+  } catch {
+    await ctx.reply(`Non riesco a trovare @${username} in questo gruppo!`);
+  }
 });
 
 // Comando /leaderboard
 bot.command("leaderboard", async (ctx) => {
-  const leaderboard = await getLeaderboard();
+  const leaderboard = await getLeaderboard(ctx.chat.id);
   if (leaderboard.length === 0) {
     await ctx.reply("Nessun punteggio clown ancora registrato!");
     return;
