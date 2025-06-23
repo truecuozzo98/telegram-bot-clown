@@ -85,7 +85,15 @@ bot.command("leaderboard", async (ctx) => {
   await ctx.reply(`🏆 Classifica clown:\n${text}`);
 });
 
+await bot.api.setMyCommands([
+  { command: "start", description: "Avvia il bot" },
+  { command: "clown", description: "Aggiungi un punto clown a un utente. Es: /clown @username" },
+  { command: "declown", description: "Togli un punto clown a un utente. Es: /declown @username" },
+  { command: "leaderboard", description: "Mostra la classifica clown" },
+]);
+
+
 // Gestisci altri messaggi
-bot.on("message", (ctx) => ctx.reply("Got another message!"));
+bot.on("message", (ctx) => ctx.reply("Comando non riconosciuto."));
 
 // Non avviare qui il bot con bot.start() se stai usando webhook
