@@ -50,12 +50,6 @@ bot.command("clown", async (ctx) => {
   const userId = replyTo.from.id;
   const userUsername = replyTo.from.username ?? `${replyTo.from.first_name ?? ""}${replyTo.from.last_name ? " " + replyTo.from.last_name : ""}`;
 
-  // Verifica che non si possa dare punti a se stessi
-  if (ctx.from?.id === userId) {
-    await ctx.reply("Non puoi dare punti clown a te stesso!");
-    return;
-  }
-
   // Leggi e aggiorna il punteggio
   const current = await getClownScore(ctx.chat.id, userId);
   const updated = current.score + 1;
@@ -123,6 +117,6 @@ await bot.api.setMyCommands([
 
 
 // Gestisci altri messaggi
-bot.on("message", (ctx) => ctx.reply("Comando non riconosciuto."));
+//bot.on("message", (ctx) => ctx.reply("Comando non riconosciuto."));
 
 // Non avviare qui il bot con bot.start() se stai usando webhook
