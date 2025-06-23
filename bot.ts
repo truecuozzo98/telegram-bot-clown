@@ -85,6 +85,25 @@ bot.command("leaderboard", async (ctx) => {
   await ctx.reply(`🏆 Classifica clown:\n${text}`);
 });
 
+async function dropClownScores() {
+  const kv = await Deno.openKv();
+  for await (const entry of kv.list({ prefix: ["clown_score"] })) {
+    await kv.delete(entry.key);
+  }
+}
+
+// Esempio: comando admin per cancellare tutto
+bot.command("resetclown", async (ctx) => {
+  // Solo admin!
+  const admins = await ctx.getChatAdministrators();
+  if (!admins.some(a => a.user.id === ctx.from?.id)) {
+    await ctx.reply("Solo gli amministratori possono resettare la classifica.");
+    return;
+  }
+  await dropClownScores();
+  await ctx.reply("Tutti i punteggi clown sono stati azzerati!");
+});
+
 await bot.api.setMyCommands([
   { command: "start", description: "Avvia il bot" },
   { command: "clown", description: "Aggiungi un punto clown a un utente. Es: /clown @username" },
