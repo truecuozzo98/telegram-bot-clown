@@ -14,7 +14,6 @@ export async function getClownScore(chatId: number, userId: number) {
   return { score: 0, username: "", message_id: 0 };
 }
 
-// Aggiorna o inserisci il punteggio di un utente
 export async function setClownScore(
   chatId: number,
   userId: number,
@@ -24,21 +23,43 @@ export async function setClownScore(
   messageTimestamp: Date,
   messageId: number,
 ) {
-    
-  // Recupera il messaggio già presente
+  // Recupera i dati già presenti
   const rows = await sql`
-    SELECT message FROM clowns WHERE chat_id = ${chatId} AND user_id = ${userId}
+    SELECT message, message_timestamp, message_id FROM clowns WHERE chat_id = ${chatId} AND user_id = ${userId}
   `;
-  let newMessage = message;
-  if (rows.length > 0 && rows[0].message) {
-    newMessage = rows[0].message + "\n---\n" + message;
+
+  // Parsing o inizializzazione degli array
+  let messagesArr: string[] = [];
+  let timestampsArr: string[] = [];
+  let messageIdsArr: number[] = [];
+
+  if (rows.length > 0) {
+    try {
+      messagesArr = JSON.parse(rows[0].message || "[]");
+    } catch { messagesArr = []; }
+    try {
+      timestampsArr = JSON.parse(rows[0].message_timestamp || "[]");
+    } catch { timestampsArr = []; }
+    try {
+      messageIdsArr = JSON.parse(rows[0].message_id || "[]");
+    } catch { messageIdsArr = []; }
   }
+
+  // Aggiungi il nuovo dato in coda
+  messagesArr.push(message);
+  timestampsArr.push(messageTimestamp.toISOString());
+  messageIdsArr.push(messageId);
+
+  // Serializza in JSON
+  const newMessages = JSON.stringify(messagesArr);
+  const newTimestamps = JSON.stringify(timestampsArr);
+  const newMessageIds = JSON.stringify(messageIdsArr);
 
   await sql`
     INSERT INTO clowns (user_id, chat_id, username, score, message, message_timestamp, message_id)
-    VALUES (${userId}, ${chatId}, ${username}, ${score}, ${newMessage}, ${messageTimestamp}, ${messageId})
+    VALUES (${userId}, ${chatId}, ${username}, ${score}, ${newMessages}, ${newTimestamps}, ${newMessageIds})
     ON CONFLICT (chat_id, user_id) DO UPDATE
-    SET score = ${score}, username = ${username}, message = ${newMessage}, message_timestamp = ${messageTimestamp}, message_id = ${messageId}
+    SET score = ${score}, username = ${username}, message = ${newMessages}, message_timestamp = ${newTimestamps}, message_id = ${newMessageIds}
   `;
 }
 

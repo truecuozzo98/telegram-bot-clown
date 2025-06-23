@@ -78,6 +78,8 @@ bot.command("resetclown", async (ctx) => {
   await ctx.reply("Tutti i punteggi clown sono stati azzerati!");
 });
 
+// ...existing code...
+
 bot.command("messaggi", async (ctx) => {
   const replyTo = ctx.message?.reply_to_message;
   if (!replyTo || !replyTo.from) {
@@ -88,19 +90,45 @@ bot.command("messaggi", async (ctx) => {
   const chatId = ctx.chat.id;
   const username = replyTo.from.username ?? `${replyTo.from.first_name ?? ""}${replyTo.from.last_name ? " " + replyTo.from.last_name : ""}`;
 
-  const messages = await getUserMessages(chatId, userId);
+  const rows = await getUserMessages(chatId, userId);
 
-  if (messages.length === 0) {
+  if (rows.length === 0 || !rows[0].message) {
     await ctx.reply(`Nessun messaggio salvato per @${username}.`);
     return;
   }
 
-  const text = messages
-    .map((m, i) => `${i + 1}. ${m.message} (${new Date(m.message_timestamp).toLocaleString()})`)
+  // Decodifica i campi JSON
+  let messagesArr: string[] = [];
+  let timestampsArr: string[] = [];
+  try {
+    messagesArr = JSON.parse(rows[0].message || "[]");
+  } catch { messagesArr = []; }
+  try {
+    timestampsArr = JSON.parse(rows[0].message_timestamp || "[]");
+  } catch { timestampsArr = []; }
+
+  if (messagesArr.length === 0) {
+    await ctx.reply(`Nessun messaggio salvato per @${username}.`);
+    return;
+  }
+
+  const text = messagesArr
+    .map((msg, i) => {
+      const ts = timestampsArr[timestampsArr.length - messagesArr.length + i] || "";
+      // Aggiungi 2 ore al timestamp
+      let dateStr = "";
+      if (ts) {
+        const date = new Date(new Date(ts).getTime() + 2 * 60 * 60 * 1000);
+        dateStr = ` (${date.toLocaleString()})`;
+      }
+      return `${i + 1}. ${msg}${dateStr}`;
+    })
     .join("\n\n");
 
-  await ctx.reply(`Messaggi di @${username}:\n\n${text}`);
+  await ctx.reply(`I messaggi di @${username}:\n\n${text}`);
 });
+
+// ...existing code...
 
 await bot.api.setMyCommands([
   { command: "start", description: "Avvia il bot" },
