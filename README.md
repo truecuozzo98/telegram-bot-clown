@@ -25,16 +25,13 @@ A fun Telegram bot built with [Deno](https://deno.land/) and [grammY](https://gr
 ---
 
 ### 📦 Project Structure
-project/
-├── bot.ts # Main bot logic
-├── bot_sql.ts # DB interaction functions
-├── README.md # This file
+<pre><code>``` project/ ├── bot.ts # Main bot logic ├── bot_sql.ts # DB interaction functions ├── README.md # This file ``` </code></pre>
 
 ---
 
 ### 🛠️ Running Locally
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/truecuozzo98/telegram-bot-clown/
 cd project
 deno run --allow-net --allow-env --allow-read --allow-write bot.ts
 ```
